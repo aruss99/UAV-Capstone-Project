@@ -1,0 +1,17 @@
+component,mass_g,x_mm_from_wing_le,y_mm,z_mm,uncertainty_g,basis
+Airframe structure and hardware,334.0,90,0,0,40,Residual calibrated so the stock no-battery BOM totals the supplier 493 g value
+FT Radial 2212B 1050 kV motor,58.0,220,0,50,5,FT Power Pack B Radial v2 selection; 56 g published motor mass plus 2 g mounting allowance
+FT 25 A ESC,25.0,120,0,-10,10,FT Power Pack B Radial v2 selection; representative installed mass
+Left aileron servo,9.0,145,-300,25,1,DFRobot SER0006 datasheet mass
+Right aileron servo,9.0,145,300,25,1,DFRobot SER0006 datasheet mass
+Elevator servo,9.0,175,-20,0,1,DFRobot SER0006 datasheet mass
+Rudder servo,9.0,175,20,0,1,DFRobot SER0006 datasheet mass
+HQ 9x4.5 Standard CCW propeller and adapter,18.0,240,0,50,5,Physical BOM selection; estimate includes hub and mounting hardware
+FrSky XM+ receiver,2.0,-20,0,-10,0.5,Published receiver mass is approximately 1.6 g; rounded with mounting
+Stock servo leads and Y harness,20.0,80,0,0,5,Estimate from Power Pack B harness contents
+Populated custom controller PCB,25.0,-20,0,-10,8,Estimate from 3 x 1.6 in FR4 board plus populated components and connectors
+Holybro Micro M9N GPS,16.0,30,0,50,1,Manufacturer mass with case
+Airborne SiK telemetry radio and antenna,23.5,120,0,-10,2,Manufacturer mass for 100/500 mW unit with antenna
+Pitot tube and pneumatic line,12.0,-250,0,25,5,Installation allowance; sensor itself is on controller PCB
+Custom avionics harness and mounting,15.0,50,0,0,7,Installation allowance beyond stock power-pack wiring
+Gens Ace 4000 mAh 3S battery,292.0,-27.57,0,-25,20,Flite Test listed pack nominal mass; x is solved to hit 57 mm CG

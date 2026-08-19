@@ -1,0 +1,53 @@
+// Component parasite-drag build-up at the cruise Reynolds number.
+//
+// The VSPAero runs use the THIN (camber-surface) set, which contains only the
+// three lifting surfaces, and a vortex-lattice solution carries no viscous drag
+// at all.  This analysis supplies the missing CD0 and is the only place the
+// fuselage, tail boom and motor pod contribute anything.
+//
+// Their outer mold lines are approximate PODs, so the body share of this
+// build-up is the least trustworthy part of it.  The result is
+// reported per component in ParasiteDragBuildUp.csv so that share is visible
+// rather than buried in a single number.
+//
+// Condition mirrors ft_explorer_conditions.py: sea level, 13 m/s.
+
+void main()
+{
+    ClearVSPModel();
+    ReadVSPFile( "ft_explorer_aero.vsp3" );
+    Update();
+
+    SetAnalysisInputDefaults( "ParasiteDrag" );
+
+    SetStringAnalysisInput( "ParasiteDrag", "FileName", { "ParasiteDragBuildUp.csv" } );
+
+    // Geometry is in inches; freestream in m/s; altitude in metres.
+    SetIntAnalysisInput( "ParasiteDrag", "LengthUnit", { LEN_IN } );
+    SetIntAnalysisInput( "ParasiteDrag", "VelocityUnit", { V_UNIT_M_S } );
+    SetIntAnalysisInput( "ParasiteDrag", "AltLengthUnit", { PD_UNITS_METRIC } );
+    SetIntAnalysisInput( "ParasiteDrag", "FreestreamPropChoice", { ATMOS_TYPE_US_STANDARD_1976 } );
+
+    SetIntAnalysisInput( "ParasiteDrag", "GeomSet", { 0 } );   // every component
+    SetIntAnalysisInput( "ParasiteDrag", "RefFlag", { 0 } );   // manual reference
+    SetDoubleAnalysisInput( "ParasiteDrag", "Sref", { 414.929 } );
+
+    SetDoubleAnalysisInput( "ParasiteDrag", "Altitude", { 0.0 } );
+    SetDoubleAnalysisInput( "ParasiteDrag", "Vinf", { 13.0 } );
+
+    // Turbulent skin friction: Blasius laminar is not appropriate over the whole
+    // surface at Re ~1.6e5, but neither is fully turbulent.  Both are run and
+    // reported per component so the choice stays visible.
+    SetIntAnalysisInput( "ParasiteDrag", "TurbCfEqnChoice", { CF_TURB_SCHLICHTING_COMPRESSIBLE } );
+    SetIntAnalysisInput( "ParasiteDrag", "LamCfEqnChoice", { CF_LAM_BLASIUS } );
+
+    Update();
+    string rid = ExecAnalysis( "ParasiteDrag" );
+    PrintResults( rid );
+
+    while ( GetNumTotalErrors() > 0 )
+    {
+        ErrorObj err = PopLastError();
+        Print( err.GetErrorString() );
+    }
+}

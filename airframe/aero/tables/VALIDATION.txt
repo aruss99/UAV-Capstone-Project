@@ -1,0 +1,111 @@
+FT Explorer low-speed coefficient set - validation
+==================================================================
+
+1. Lift-curve slope against lifting-line theory
+     generated CL_alpha (whole aircraft) = 5.190 /rad (0.09058 /deg)
+     lifting-line, wing alone, AR 7.83  = 4.984 /rad
+  [PASS] CL_alpha vs lifting line: 5.190 /rad sits +4.1% from the wing-alone value; the aircraft includes a horizontal tail, so a modest excess is expected
+
+2. Longitudinal static stability
+     Cm_alpha = -0.013966 /deg,  static margin = 15.42 % MAC
+  [PASS] Cm_alpha negative: -0.013966 /deg -- statically stable
+  [PASS] static margin plausible: 15.4% MAC (a trainer normally sits at 15-25%)
+     implied neutral point = 1.905 cref aft of the nose = 13.866 in
+
+3. Lateral-directional static stability (signs)
+     CY_beta = -0.004627 /deg    Cl_beta = -0.000078 /deg    Cn_beta = +0.001513 /deg
+  [PASS] Cn_beta > 0 (directionally stable): +0.001513 /deg
+  [PASS] Cl_beta < 0 (stable dihedral effect): -0.000078 /deg
+  [PASS] CY_beta < 0: -0.004627 /deg
+     NOTE: the wing has zero dihedral, so Cl_beta comes almost entirely from the
+     vertical tail above the CG and is correspondingly small.
+
+4. Rate derivatives against physical expectation
+  [PASS] Clp in a physical range: -0.5345 (expected -1.0 .. -0.2)
+  [PASS] Cmq in a physical range: -10.0211 (expected -30.0 .. -4.0)
+  [PASS] Cnr in a physical range: -0.0627 (expected -0.5 .. -0.01)
+     Clr = +0.0430   Cnp = -0.0185
+
+5. Stability run vs static grid (independent solves of the same quantity)
+  [PASS] Cm_alpha /deg agreement: stability run -0.013587 vs grid -0.013966 (2.7% apart)
+  [PASS] Cn_beta  /deg agreement: stability run +0.001409 vs grid +0.001513 (6.9% apart)
+  [PASS] CY_beta  /deg agreement: stability run -0.004212 vs grid -0.004627 (9.0% apart)
+
+6. Control derivative signs and authority
+  [PASS] Cl_da > 0: +0.008906 /deg
+  [PASS] Cm_de < 0: -0.021905 /deg
+  [PASS] Cn_dr > 0: +0.001153 /deg
+     Cn_da = +0.000142 /deg at alpha 0 (PROVERSE yaw)
+     Cn_da across the band:
+       -8:-0.00009  -6:-0.00001  -4:+0.00000  -2:+0.00015  +0:+0.00014  +2:+0.00005  +4:+0.00014  +6:+0.00033  +8:+0.00031
+
+7. Aileron yaw coupling, and whether the rudder can counter it
+     This is the quantity that decides the lateral result: in the HL-20
+     plant Cnda is adverse and comparable to or larger than Clda,
+     with no rudder input at all, so the lateral axis could not close.
+     new airframe:  |Cn_da/Cl_da| <= 0.0374 (worst at alpha +6 deg)
+     HL-20: |Cnda/Clda| = 0.36 .. 4.81
+     yaw from full aileron (12 deg): 0.00399
+     yaw from full rudder  (12 deg): 0.01383
+  [PASS] rudder can counter full-throw aileron yaw: rudder authority is 3.5x what the aileron demands
+     CAVEAT: the fuselage, boom and motor pod carry no vortex-lattice loading,
+     so directional stability and rudder sidewash are both optimistic here.
+
+8. Control authority vs the HL-20 tables
+     The HL-20 plant is a Mach-0.6 lifting body; these ratios are the
+     reason its deflection demands carry no meaning for this airframe.
+     Cm_de: new -0.021905 /deg vs HL-20 -1.93e-03 .. +3.33e-05 -> 11.4x the authority per degree
+     Cl_da: new +0.008906 /deg vs HL-20 +5.86e-04 .. +2.56e-03 -> 3.5x the authority per degree
+
+9. Trim at cruise, and the elevator needed to hold it
+     CL required            0.3102
+     trim alpha             +1.60 deg
+     Cm at that alpha       -0.01231
+     elevator to trim       -0.56 deg
+  [PASS] trim alpha inside the validated band: +1.60 deg in [-8, +8]
+  [PASS] elevator to trim within the 12 deg throw: |-0.56| deg against a 12 deg throw
+
+10. Symmetry of the static grid (a solver sanity check)
+  [PASS] beta symmetry: worst mismatch 1.56e-04 at alpha=-3 beta=-1 on Cm
+
+11. Control-derivative parity and linearity diagnostics
+     'dropped' is the parity component NOT carried by the table shape;
+     'linearity' is the change in the derivative between a 6 and 12 deg step.
+     aileron:
+        CX  |max| 0.001609   dropped 2.25e-05   linearity 9.41e-04
+        CY  |max| 0.001870   dropped 6.62e-05   linearity 6.74e-04
+        CZ  |max| 0.001398   dropped 4.39e-05   linearity 1.29e-03
+        Cl  |max| 0.008929   dropped 8.28e-06   linearity 4.04e-04
+        Cm  |max| 0.003613   dropped 1.03e-04   linearity 2.93e-03
+        Cn  |max| 0.000332   dropped 2.22e-05   linearity 2.67e-04
+     elevator:
+        CX  |max| 0.000314   dropped 4.49e-04   linearity 9.27e-06
+        CY  |max| 0.000001   dropped 8.29e-07   linearity 3.99e-07
+        CZ  |max| 0.009096   dropped 3.58e-05   linearity 1.61e-04
+        Cl  |max| 0.000000   dropped 2.48e-07   linearity 1.67e-07
+        Cm  |max| 0.021911   dropped 1.65e-04   linearity 4.32e-04
+        Cn  |max| 0.000000   dropped 2.63e-07   linearity 2.22e-07
+     rudder:
+        CX  |max| 0.000204   dropped 1.83e-05   linearity 1.21e-04
+        CY  |max| 0.003339   dropped 9.00e-05   linearity 1.83e-04
+        CZ  |max| 0.000099   dropped 2.12e-05   linearity 1.24e-04
+        Cl  |max| 0.000047   dropped 1.25e-06   linearity 2.75e-05
+        Cm  |max| 0.000425   dropped 6.05e-05   linearity 4.26e-04
+        Cn  |max| 0.001197   dropped 3.49e-05   linearity 6.99e-05
+
+12. Drag build-up
+     CD0 total 0.03209, fully turbulent (0% laminar assumed)
+        ForwardFuselage_APPROX     0.00781  (24.3%)
+        TailBoom_APPROX            0.00172  ( 5.4%)
+        PusherMotorPod_APPROX      0.00344  (10.7%)
+        SportWingRecon             0.01470  (45.8%)
+        HorizTailEst               0.00307  ( 9.5%)
+        VertTailEst                0.00136  ( 4.2%)
+     induced at cruise (e=0.85) 0.00460
+     total at cruise            0.03670   ->  L/D = 8.45
+  [PASS] cruise L/D plausible for a foam trainer: 8.45
+     WARNING: the forward fuselage, boom and motor pod are approximate PODs and
+     contribute 40% of CD0. That share is not validated geometry.
+
+==================================================================
+RESULT: all hard checks passed.

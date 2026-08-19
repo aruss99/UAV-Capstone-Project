@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+
+# MATLAB and Simulink generated artifacts
+slprj/
+*.slxc
+
+# Local OpenVSP state and generated solver outputs
+.vsptime
+airframe/aero/raw/

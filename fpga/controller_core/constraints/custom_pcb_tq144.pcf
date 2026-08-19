@@ -1,0 +1,7 @@
+# Custom flight-controller PCB V3 net names and iCE40HX1K-TQ144 package pins.
+# The communication nets are reused only for the controller-core scan wrapper.
+set_io sys_clk              21
+set_io scan_clk_pin         29
+set_io scan_data_out_pin    31
+set_io scan_data_in_pin     33
+set_io scan_select_n_pin    34

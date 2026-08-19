@@ -1,0 +1,111 @@
+// Build the VSPAero working model: read the airframe baseline and define ONE
+// control-surface group per physical control surface.
+//
+// WHY ONE SURFACE PER GROUP, AND WHY THE SIGNS LOOK BACKWARDS.
+//
+// A control sub-surface on a planar-symmetric wing produces two surface copies,
+// Surf0 and Surf1.  Surf1 is the MIRROR of Surf0, and its deflection is applied
+// in its own mirrored parametric frame, so a positive deflection command on
+// Surf1 moves that surface the opposite physical way from the same command on
+// Surf0.  Measured directly, +12 deg on each surface alone at alpha = 0:
+//
+//     AilL  dCl -0.0572   dCZ -0.2509      AilR  dCl -0.0562   dCZ +0.2603
+//     ElvL  dCm -0.1284   dCZ -0.0535      ElvR  dCm +0.1299   dCZ +0.0538
+//
+// Both ailerons roll the same way for the same command; the two elevator halves
+// pitch OPPOSITE ways.  So the physically antisymmetric (roll) command is
+// "+delta on both ailerons", and the physically symmetric (pitch) command is
+// "+delta on one elevator half, -delta on the other" -- the reverse of what the
+// names suggest.  run_cases.surface_deflections() encodes exactly that, and
+// check_control_response.py asserts each composed command produces the moment
+// it should and only that moment.
+//
+// Using VSPAero's multi-surface groups with a per-surface gain vector would
+// hide this: the gain would be folded into the same mirrored frame, so a
+// "1, -1" aileron group is physically SYMMETRIC.  That is what produced an
+// aileron command with dCl = 0 and dCZ = -1.007 (a flap) before this was
+// understood.  One surface per group keeps the sign of every surface explicit
+// and checkable.
+
+array<int> PickByName( int g, string token )
+{
+    array<string> avail = GetAvailableCSNameVec( g );
+    array<int> picked;
+    for ( uint i = 0; i < avail.size(); i++ )
+    {
+        if ( avail[i].find( token ) >= 0 ) { picked.insertLast( int(i) + 1 ); }
+    }
+    return picked;
+}
+
+void AddSingle( string group_name, string surface_token )
+{
+    int g = CreateVSPAEROControlSurfaceGroup();
+    SetVSPAEROControlGroupName( group_name, g );
+    array<int> sel = PickByName( g, surface_token );
+    if ( sel.size() != 1 )
+    {
+        Print( "ERROR group " + group_name + " matched " + sel.size() + " surfaces for token " + surface_token );
+        return;
+    }
+    AddSelectedToCSGroup( sel, g );
+}
+
+void main()
+{
+    ClearVSPModel();
+    ReadVSPFile( "../ft_explorer_sport.vsp3" );
+
+    // PANELING.  The stock SectTess_U of 6 gives about 10 spanwise strips per
+    // wing half, which is enough for lift and pitching moment but NOT for the
+    // aileron yawing moment, a small difference of larger quantities.  Measured
+    // convergence of the aileron derivatives (central difference over +/-12 deg,
+    // alpha -8..+8):
+    //
+    //   SectTess_U    Cl_da spread over alpha      Cn_da
+    //        6        0.00877 .. 0.00999           -0.00176 .. +0.00047  (noise)
+    //       12        0.00877 .. 0.00918           -0.00017 .. +0.00070
+    //       24        0.00871 .. 0.00893           -0.00010 .. +0.00033
+    //
+    // Cl_da is converged to about 0.5% at 24 and was in error by up to 12% at 6.
+    // 24 is therefore used for every production run.
+    SetParmVal( FindParm( FindGeom( "SportWingRecon", 0 ), "SectTess_U", "XSec_1" ), 24 );
+    SetParmVal( FindParm( FindGeom( "HorizTailEst", 0 ), "SectTess_U", "XSec_1" ), 24 );
+    SetParmVal( FindParm( FindGeom( "VertTailEst", 0 ), "SectTess_U", "XSec_1" ), 24 );
+    Update();
+
+    AddSingle( "AilL", "SportWingRecon_Surf0_Left_and_Right_Ailerons" );
+    AddSingle( "AilR", "SportWingRecon_Surf1_Left_and_Right_Ailerons" );
+    AddSingle( "ElvL", "HorizTailEst_Surf0_Elevator" );
+    AddSingle( "ElvR", "HorizTailEst_Surf1_Elevator" );
+    AddSingle( "Rud", "VertTailEst_Surf0_Rudder" );
+    Update();
+
+    for ( int g = 0; g < GetNumControlSurfaceGroups(); g++ )
+    {
+        Print( "GROUP " + g + " " + GetVSPAEROControlGroupName( g ) );
+        array<string> act = GetActiveCSNameVec( g );
+        for ( uint i = 0; i < act.size(); i++ ) { Print( "    " + act[i] ); }
+    }
+
+    string wing = FindGeom( "SportWingRecon", 0 );
+    Print( "REF_SPAN_IN " + GetParmVal( wing, "TotalSpan", "WingGeom" ) );
+    Print( "REF_AREA_IN2 " + GetParmVal( wing, "TotalArea", "WingGeom" ) );
+
+    SetAnalysisInputDefaults( "MassProp" );
+    string mrid = ExecAnalysis( "MassProp" );
+    array<vec3d> cg = GetVec3dResults( mrid, "Total_CG" );
+    if ( cg.size() > 0 )
+    {
+        Print( "REF_CG_IN " + cg[0].x() + " " + cg[0].y() + " " + cg[0].z() );
+    }
+
+    WriteVSPFile( "ft_explorer_aero.vsp3", SET_ALL );
+    Print( "BUILD_COMPLETE" );
+
+    while ( GetNumTotalErrors() > 0 )
+    {
+        ErrorObj err = PopLastError();
+        Print( err.GetErrorString() );
+    }
+}

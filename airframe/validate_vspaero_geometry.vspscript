@@ -1,0 +1,26 @@
+// Confirm that OpenVSP can convert all three lifting surfaces and controls into
+// VSPAero geometry.  This intentionally does not publish aerodynamic numbers:
+// the main wing uses the plan-derived folded-foam reconstruction.
+void main()
+{
+    ClearVSPModel();
+    ReadVSPFile( "ft_explorer_sport.vsp3" );
+
+    SetAnalysisInputDefaults( "VSPAEROComputeGeometry" );
+    array<int> thick_set = GetIntAnalysisInput( "VSPAEROComputeGeometry", "GeomSet" );
+    array<int> thin_set = GetIntAnalysisInput( "VSPAEROComputeGeometry", "ThinGeomSet" );
+    thick_set[0] = SET_NONE;
+    thin_set[0] = 3;
+    SetIntAnalysisInput( "VSPAEROComputeGeometry", "GeomSet", thick_set );
+    SetIntAnalysisInput( "VSPAEROComputeGeometry", "ThinGeomSet", thin_set );
+
+    string rid = ExecAnalysis( "VSPAEROComputeGeometry" );
+    Print( "VSPAEROComputeGeometry result ID: " + rid );
+    PrintResults( rid );
+
+    while ( GetNumTotalErrors() > 0 )
+    {
+        ErrorObj err = PopLastError();
+        Print( err.GetErrorString() );
+    }
+}

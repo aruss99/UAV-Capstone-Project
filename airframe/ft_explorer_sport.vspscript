@@ -1,0 +1,204 @@
+// Parametric first-pass model of the Flite Test FT Explorer V1/MKR2.
+// Units: geometry in inches; BLANK point-mass values in kg.
+// Axes: x aft from the nose, y right, z up.
+//
+// Geometry authority:
+//   FT Explorer V1.0 full-size vector plan: 57 in nominal span, main-wing
+//   folded chord reconstructed as 7.263 in, 36.5 in length, and CG 2.25 in
+//   aft of wing leading edge.  The supplier's 460 in^2 value is retained as
+//   total advertised wing area, not forced onto the main wing alone.
+// Configuration: official flat sport wing, two ailerons, elevator, rudder.
+//
+// The main section is reconstructed from the full-scale plan fold lengths,
+// nominal 3/16 in foam board, and the supplier's official closing sequence. See
+// reconstruct_sport_airfoil.py for the two explicit aft-facet assumptions.
+//
+// GEOMETRY NAMES: lifting-surface names must contain NO underscore.
+// When exporting thin (camber-surface) geometry, OpenVSP appends "_C" to the
+// geometry name for the tag files but strips the FIRST "_x" pair rather than
+// the last when composing the control-surface tag name.  With any underscore
+// earlier in the name the wrong pair is removed -- "Sport_Wing_PLAN" is written
+// as "Sporting_PLAN", "SportWing_PLAN" as "SportWingLAN" -- and VSPAero then
+// fails with "Could not find start of control surface ... data in csf".
+// With no underscore in the name the strip removes exactly the "_C" it was
+// meant to, and the tag name matches the .csf entry.  Geometry conversion
+// passes either way, so this only appears once a surface is actually
+// deflected.
+
+void SetFourSeries( string gid, double camber, double camber_loc, double tc )
+{
+    string xs = GetXSecSurf( gid, 0 );
+    int count = GetNumXSec( xs );
+    for ( int i = 0; i < count; i++ )
+    {
+        ChangeXSecShape( xs, i, XS_FOUR_SERIES );
+    }
+    Update();
+    for ( int j = 0; j < count; j++ )
+    {
+        string group = "XSecCurve_" + j;
+        SetParmVal( gid, "Camber", group, camber );
+        SetParmVal( gid, "CamberLoc", group, camber_loc );
+        SetParmVal( gid, "ThickChord", group, tc );
+    }
+}
+
+void SetFileAirfoil( string gid, string file_name )
+{
+    string xs = GetXSecSurf( gid, 0 );
+    int count = GetNumXSec( xs );
+    for ( int i = 0; i < count; i++ )
+    {
+        ChangeXSecShape( xs, i, XS_FILE_AIRFOIL );
+        string xsec = GetXSec( xs, i );
+        ReadFileAirfoil( xsec, file_name );
+    }
+}
+
+string AddControl( string gid, string name, double u0, double u1, double chord_frac )
+{
+    string sid = AddSubSurf( gid, SS_CONTROL, 0 );
+    SetSubSurfName( sid, name );
+    SetParmVal( FindParm( sid, "UStart", "SS_Control" ), u0 );
+    SetParmVal( FindParm( sid, "UEnd", "SS_Control" ), u1 );
+    SetParmVal( FindParm( sid, "Length_C_Start", "SS_Control" ), chord_frac );
+    SetParmVal( FindParm( sid, "Length_C_End", "SS_Control" ), chord_frac );
+    SetParmVal( FindParm( sid, "SE_Const_Flag", "SS_Control" ), 1 );
+    return sid;
+}
+
+void AddPointMassKg( string name, double mass_kg, double x_in, double y_in, double z_in )
+{
+    string bid = AddGeom( "BLANK", "" );
+    SetGeomName( bid, name );
+    SetParmVal( bid, "X_Rel_Location", "XForm", x_in );
+    SetParmVal( bid, "Y_Rel_Location", "XForm", y_in );
+    SetParmVal( bid, "Z_Rel_Location", "XForm", z_in );
+    SetParmVal( bid, "PointMass", "Mass_Props", mass_kg );
+}
+
+void main()
+{
+    ClearVSPModel();
+
+    const double wing_le = 10.5;
+    const double wing_chord = 7.279464;
+
+    // Main fuselage and tapered tail boom.  PODs deliberately approximate the
+    // boxy foam-board bodies; their outer mold lines must be refined from a
+    // physical measurement before parasite drag is treated as validated.
+    string fuse = AddGeom( "POD", "" );
+    SetGeomName( fuse, "ForwardFuselage_APPROX" );
+    SetParmVal( fuse, "Length", "Design", 21.0 );
+    SetParmVal( fuse, "FineRatio", "Design", 5.25 );
+    SetParmVal( fuse, "X_Rel_Location", "XForm", 0.0 );
+    SetParmVal( fuse, "Z_Rel_Location", "XForm", -0.6 );
+    SetParmVal( fuse, "Density", "Mass_Props", 0.0 );
+
+    string boom = AddGeom( "POD", "" );
+    SetGeomName( boom, "TailBoom_APPROX" );
+    SetParmVal( boom, "Length", "Design", 20.0 );
+    SetParmVal( boom, "FineRatio", "Design", 12.5 );
+    SetParmVal( boom, "X_Rel_Location", "XForm", 16.5 );
+    SetParmVal( boom, "Z_Rel_Location", "XForm", 0.0 );
+    SetParmVal( boom, "Density", "Mass_Props", 0.0 );
+
+    string motor_pod = AddGeom( "POD", "" );
+    SetGeomName( motor_pod, "PusherMotorPod_APPROX" );
+    SetParmVal( motor_pod, "Length", "Design", 3.0 );
+    SetParmVal( motor_pod, "FineRatio", "Design", 2.0 );
+    SetParmVal( motor_pod, "X_Rel_Location", "XForm", 17.7 );
+    SetParmVal( motor_pod, "Z_Rel_Location", "XForm", 2.0 );
+    SetParmVal( motor_pod, "Density", "Mass_Props", 0.0 );
+
+    // The plan shows an essentially constant chord with rounded corners.  Use
+    // the mean/root chord here; the OpenVSP end cap rounds thickness, while
+    // planform corner rounding is a small remaining geometry uncertainty.
+    string wing = AddGeom( "WING", "" );
+    SetGeomName( wing, "SportWingRecon" );
+    SetParmVal( wing, "Sym_Planar_Flag", "Sym", 2 );
+    SetDriverGroup( wing, 1, SPAN_WSECT_DRIVER, ROOTC_WSECT_DRIVER, TIPC_WSECT_DRIVER );
+    SetParmVal( wing, "Span", "XSec_1", 28.5 );
+    SetParmVal( wing, "Root_Chord", "XSec_1", wing_chord );
+    SetParmVal( wing, "Tip_Chord", "XSec_1", wing_chord );
+    SetParmVal( wing, "Sweep", "XSec_1", 0.0 );
+    SetParmVal( wing, "Dihedral", "XSec_1", 0.0 );
+    SetParmVal( wing, "X_Rel_Location", "XForm", wing_le );
+    SetParmVal( wing, "Z_Rel_Location", "XForm", 1.0 );
+    SetParmVal( wing, "Density", "Mass_Props", 0.0 );
+    SetFileAirfoil( wing, "ft_explorer_sport_reconstructed.af" );
+    SetParmVal( wing, "CapUMaxOption", "EndCap", ROUND_END_CAP );
+    AddControl( wing, "Left_and_Right_Ailerons", 0.06, 0.81, 0.2341 );
+    SetSetFlag( wing, 3, true );
+
+    // Tail sizes are measured/estimated from the supplier plan outline; retain
+    // as editable parameters until a ruler check on the built aircraft.
+    string htail = AddGeom( "WING", "" );
+    SetGeomName( htail, "HorizTailEst" );
+    SetParmVal( htail, "Sym_Planar_Flag", "Sym", 2 );
+    SetDriverGroup( htail, 1, SPAN_WSECT_DRIVER, ROOTC_WSECT_DRIVER, TIPC_WSECT_DRIVER );
+    SetParmVal( htail, "Span", "XSec_1", 9.0 );
+    SetParmVal( htail, "Root_Chord", "XSec_1", 5.0 );
+    SetParmVal( htail, "Tip_Chord", "XSec_1", 4.25 );
+    SetParmVal( htail, "Sweep", "XSec_1", 5.0 );
+    SetParmVal( htail, "X_Rel_Location", "XForm", 29.5 );
+    SetParmVal( htail, "Z_Rel_Location", "XForm", 0.4 );
+    SetParmVal( htail, "Density", "Mass_Props", 0.0 );
+    SetFourSeries( htail, 0.0, 0.40, 0.08 );
+    AddControl( htail, "Elevator", 0.05, 0.98, 0.30 );
+    SetSetFlag( htail, 3, true );
+
+    string vtail = AddGeom( "WING", "" );
+    SetGeomName( vtail, "VertTailEst" );
+    SetParmVal( vtail, "Sym_Planar_Flag", "Sym", 0 );
+    SetDriverGroup( vtail, 1, SPAN_WSECT_DRIVER, ROOTC_WSECT_DRIVER, TIPC_WSECT_DRIVER );
+    SetParmVal( vtail, "Span", "XSec_1", 8.5 );
+    SetParmVal( vtail, "Root_Chord", "XSec_1", 6.0 );
+    SetParmVal( vtail, "Tip_Chord", "XSec_1", 2.5 );
+    SetParmVal( vtail, "Sweep", "XSec_1", 25.0 );
+    SetParmVal( vtail, "X_Rel_Location", "XForm", 29.0 );
+    SetParmVal( vtail, "Z_Rel_Location", "XForm", 0.4 );
+    SetParmVal( vtail, "X_Rel_Rotation", "XForm", 90.0 );
+    SetParmVal( vtail, "Density", "Mass_Props", 0.0 );
+    SetFourSeries( vtail, 0.0, 0.40, 0.08 );
+    AddControl( vtail, "Rudder", 0.08, 0.95, 0.35 );
+    SetSetFlag( vtail, 3, true );
+
+    // Point masses mirror mass_properties.csv.  x below is nose-referenced:
+    // x_model = wing_le + x_from_wing_LE / 25.4.
+    AddPointMassKg( "MASS_Airframe_Structure", 0.3340, wing_le + 90.0/25.4, 0.0, 0.0 );
+    AddPointMassKg( "MASS_Motor", 0.0580, wing_le + 220.0/25.4, 0.0, 50.0/25.4 );
+    AddPointMassKg( "MASS_ESC", 0.0250, wing_le + 120.0/25.4, 0.0, -10.0/25.4 );
+    AddPointMassKg( "MASS_Aileron_Servo_L", 0.0090, wing_le + 145.0/25.4, -300.0/25.4, 25.0/25.4 );
+    AddPointMassKg( "MASS_Aileron_Servo_R", 0.0090, wing_le + 145.0/25.4, 300.0/25.4, 25.0/25.4 );
+    AddPointMassKg( "MASS_Elevator_Servo", 0.0090, wing_le + 175.0/25.4, -20.0/25.4, 0.0 );
+    AddPointMassKg( "MASS_Rudder_Servo", 0.0090, wing_le + 175.0/25.4, 20.0/25.4, 0.0 );
+    AddPointMassKg( "MASS_Prop_and_Adapter", 0.0180, wing_le + 240.0/25.4, 0.0, 50.0/25.4 );
+    AddPointMassKg( "MASS_Receiver", 0.0020, wing_le - 20.0/25.4, 0.0, -10.0/25.4 );
+    AddPointMassKg( "MASS_Stock_Harness", 0.0200, wing_le + 80.0/25.4, 0.0, 0.0 );
+    AddPointMassKg( "MASS_Custom_PCB", 0.0250, wing_le - 20.0/25.4, 0.0, -10.0/25.4 );
+    AddPointMassKg( "MASS_GPS", 0.0160, wing_le + 30.0/25.4, 0.0, 50.0/25.4 );
+    AddPointMassKg( "MASS_SiK_Radio", 0.0235, wing_le + 120.0/25.4, 0.0, -10.0/25.4 );
+    AddPointMassKg( "MASS_Pitot_and_Line", 0.0120, wing_le - 250.0/25.4, 0.0, 25.0/25.4 );
+    AddPointMassKg( "MASS_Custom_Harness", 0.0150, wing_le + 50.0/25.4, 0.0, 0.0 );
+    AddPointMassKg( "MASS_Battery_4000mAh_3S", 0.2920, wing_le - 27.57/25.4, 0.0, -25.0/25.4 );
+
+    Update();
+    Print( "Main-wing total span [in]: ", false );
+    Print( GetParmVal( wing, "TotalSpan", "WingGeom" ) );
+    Print( "Main-wing reference area [in^2]: ", false );
+    Print( GetParmVal( wing, "TotalArea", "WingGeom" ) );
+    WriteVSPFile( "ft_explorer_sport.vsp3", SET_ALL );
+
+    // Verify point-mass total and CG inside OpenVSP.  Distributed structure is
+    // deliberately represented as a point, so resulting inertias are not final.
+    SetAnalysisInputDefaults( "MassProp" );
+    string rid = ExecAnalysis( "MassProp" );
+    PrintResults( rid );
+
+    while ( GetNumTotalErrors() > 0 )
+    {
+        ErrorObj err = PopLastError();
+        Print( err.GetErrorString() );
+    }
+}
